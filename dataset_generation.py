@@ -1,17 +1,19 @@
+#!/usr/bin/env python3
+
 import cv2
-from random import randint, sample
-import itertools
+from random import randint
 import numpy as np
 import math
 import os
-from sklearn.cluster import KMeans
+import argparse
 
-PIXELATED_SPEED = [8, 12, 14, 16, 18, 20, 25, 28, 32, 40, 50, 60]
-BLURRED_SPEED = [200, 175, 150, 130, 120, 110, 100, 90, 80, 70, 60, 30]
-DISTORTED_SPEED = [300, 200, 150, 125, 115, 100, 82, 75, 62, 50, 25, 10]
-JIGSAW_SPEED = [42, 34, 28, 22, 20, 18, 16, 14, 12, 10, 6, 3]
+# the speed of the change throughout the sets
+PIXELATED_SPEED = [16, 19, 23, 28, 33, 39, 46, 53, 60, 70, 80, 90]
+WAVY_SPEED = [300, 200, 150, 125, 115, 100, 82, 75, 62, 50, 30, 20]
+JIGSAW_SPEED = [50, 46, 42, 34, 30, 24, 22, 20, 18, 16, 14, 10]
 
 
+# generate pixelated set from image "img" and save the result with the name "name"
 def pixelate(img, name):
     height, width = img.shape[:2]
     print(f"\t[+] Generating pixelated set")
@@ -31,41 +33,35 @@ def pixelate(img, name):
         cv2.imwrite(f'pixelated/{name}{i}-{number_of_pixels}.jpg', output)
 
 
-def blur(image, name):
-    print(f"\t[+] Generating blurred set")
-    for num, intensity in enumerate(BLURRED_SPEED):
-        print(f"\t\t[+] Image {num + 1}/{len(BLURRED_SPEED)}")
-        output = cv2.blur(image, (intensity, intensity))
-        cv2.imwrite(f'blurred/{name}{num}-{intensity}.jpg', output)
-
-
-def distort(image, name):
+# generate wavy set from image "img" and save the result with the name "name"
+def wave(image, name):
     height, width = image.shape[:2]
 
-    print("\t[+] Generating distorted set")
-    for num, intensity in enumerate(DISTORTED_SPEED):
+    print("\t[+] Generating wavy set")
+    for num, intensity in enumerate(WAVY_SPEED):
         output = image.copy()
-        print(f"\t\t[+] Image {num + 1}/{len(DISTORTED_SPEED)}")
+        print(f"\t\t[+] Image {num + 1}/{len(WAVY_SPEED)}")
         for i in range(height):
             for j in range(width):
                 try:
                     output[i + int(intensity * math.sin(j / int(width / 30))), j] = image[i, j]
                 except:
                     output[i + int(intensity * math.sin(j / int(width / 30))) - height, j] = image[i, j]
-        cv2.imwrite(f'distorted/{name}{num}-{intensity}.jpg', output)
+        cv2.imwrite(f'wavy/{name}{num}-{intensity}.jpg', output)
 
 
+# generate jigsaw set from image "img" and save the result with the name "name"
 def jigsaw(img, name):
+    img = cv2.resize(img, (1150, 1150))
     height, width = img.shape[:2]
     print("\t[+] Generating jigsaw set")
     for num, square_num in enumerate(JIGSAW_SPEED):
         print(f"\t\t[+] Image {num + 1}/{len(JIGSAW_SPEED)}")
-        output = img.copy()
+        output = np.zeros((height, width, 3), dtype=np.uint8)
         occupied = []
         square_size = int(width / square_num)
-        count = 0
-        for i in range(0, width - square_size, square_size):
-            for j in range(0, height - square_size, square_size):
+        for i in range(0, width - square_size + 1, square_size):
+            for j in range(0, height - square_size + 1, square_size):
                 position = (randint(0, square_num - 1) * square_size, randint(0, square_num - 1) * square_size)
                 while position in occupied:
                     position = (randint(0, square_num - 1) * square_size, randint(0, square_num - 1) * square_size)
@@ -76,12 +72,19 @@ def jigsaw(img, name):
         cv2.imwrite(f'jigsaw/{name}{num}-{square_num}.jpg', output)
 
 
-def run():
-    directory = "src_images"
-    # os.mkdir("pixelated")
-    # os.mkdir("blurred")
-    # os.mkdir("distorted")
-    # os.mkdir("jigsaw")
+def run(args):
+    directory = args.source_directory
+    if args.all:
+        os.mkdir("pixelated")
+        os.mkdir("wavy")
+        os.mkdir("jigsaw")
+    else:
+        if args.pixelated:
+            os.mkdir("pixelated")
+        if args.wavy:
+            os.mkdir("wavy")
+        if args.jigsaw:
+            os.mkdir("jigsaw")
     num_of_img = len([name for name in os.listdir(directory) if os.path.isfile(os.path.join(directory, name))])
 
     for i, filename in enumerate(os.listdir(directory)):
@@ -89,10 +92,29 @@ def run():
         f = os.path.join(directory, filename)
         if os.path.isfile(f):
             img = cv2.imread(f)
-            pixelate(img, os.path.splitext(filename)[0])
-            # blur(img, os.path.splitext(filename)[0])
-            # distort(img, os.path.splitext(filename)[0])
-            # jigsaw(img, os.path.splitext(filename)[0])
+            if args.all:
+                pixelate(img, os.path.splitext(filename)[0])
+                wave(img, os.path.splitext(filename)[0])
+                jigsaw(img, os.path.splitext(filename)[0])
+            else:
+                if args.pixelated:
+                    pixelate(img, os.path.splitext(filename)[0])
+                if args.wavy:
+                    wave(img, os.path.splitext(filename)[0])
+                if args.jigsaw:
+                    jigsaw(img, os.path.splitext(filename)[0])
 
 
-run()
+parser = argparse.ArgumentParser(prog="Dataset generator")
+parser.add_argument('source_directory', help="The directory, where the source images are located")
+parser.add_argument('-a', '--all', action="store_true",
+                    help="Generate all the types of distortion (alternative to -w -j -p)")
+parser.add_argument('-w', '--wavy', action="store_true", help="Generate wavy images")
+parser.add_argument('-j', '--jigsaw', action="store_true", help="Generate jigsaw images")
+parser.add_argument('-p', '--pixelated', action="store_true", help="Generate pixelated images")
+parser.set_defaults(all=False, wavy=False, jigsaw=False, pixelated=False)
+args = parser.parse_args()
+if not (args.all or args.wavy or args.jigsaw or args.pixelated):
+    parser.error('No action requested, specify the type of distortion with one or more option from (-w -j -p -a)')
+
+run(args)
