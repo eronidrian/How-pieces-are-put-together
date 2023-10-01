@@ -1,5 +1,7 @@
 # How-pieces-are-put-together
 
+A tool for a semestral project in the Artificial and Natural Intelligence course. The goal of the project was to create a dataset for studying the insight phenomenon in psychology.
+
 How to use the tool:
 
 1. Clone the repo
